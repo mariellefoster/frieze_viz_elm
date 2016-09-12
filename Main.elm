@@ -1,34 +1,36 @@
 import Color exposing (..)
 import Collage exposing (..)
 import Element exposing (..)
-import Html exposing (Html, button, div, text, h1)
+import Html exposing (Html, button, div, text, h1, Attribute)
 import Html.App as App
-import Html.Events exposing (onClick)
+import Html.Events exposing (onClick, on)
 import Window
 import Task
 import Mouse
+import Json.Decode as Json exposing ((:=))
 
 -- MODEL
 
 (canvasWidth, canvasHeight) = (600,400)
 
 type alias Model = 
-  { windowSize: Window.Size 
+  { windowSize: Window.Size,
+    position: {x: Int, y: Int}
   }
 
-type Msg 
-  = Increment 
-  | Decrement 
-  | NewWindowSize Window.Size
+
+
+type Msg
+  = NewWindowSize Window.Size
   | SizeUpdateFailure String
-  | Coords Mouse.Position
+  | Coords {x: Int, y: Int}
   | Nothing
 
 init : (Model, Cmd Msg)
 init =
   let
     size = {width = 600, height = 800}
-    model = {windowSize = size }
+    model = {windowSize = size, position = {x= 0, y = 0}}
     windowSizeCmd = getWindowSize
     cmds = Cmd.batch [windowSizeCmd]
   in
@@ -41,10 +43,18 @@ getWindowSize = Task.perform SizeUpdateFailure NewWindowSize Window.size
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
-  (model, Cmd.none)
+  (updateHelper msg model, Cmd.none)
+
+updateHelper : Msg -> Model -> Model
+updateHelper msg ({windowSize, position} as model) =
+  case msg of
+    Nothing -> model 
+    NewWindowSize _ -> model
+    SizeUpdateFailure _ -> model
+    Coords pos -> {model | position = pos}
+
 
 -- SUBSCRIPTIONS
-
 subscriptions : Model -> Sub Msg
 subscriptions model =
   Sub.batch [Window.resizes NewWindowSize]
@@ -54,8 +64,8 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
   div [] [
-    h1 [] [Html.text "hi"]
-    , div [Html.on (Coords Mouse.position)] [
+    h1 [] [Html.text (toString (model.position.x, model.position.y))]
+    , div [onMouseClick] [
       toHtml <|
       container canvasWidth canvasHeight middle <|
       collage canvasWidth canvasHeight
@@ -64,6 +74,10 @@ view model =
         ]
       ]
   ]
+
+onMouseClick : Attribute Msg
+onMouseClick =
+  on "mousedown" (Json.map Coords Mouse.position)
 
 
 -- MAIN
@@ -74,3 +88,4 @@ main =
     , view = view
     , subscriptions = subscriptions
   }
+
